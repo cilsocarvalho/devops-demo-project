@@ -1,14 +1,12 @@
 pipeline {
     agent any
     
-    // Definindo mais parâmetros úteis
     parameters {
         string(name: 'build_version', defaultValue: 'V1.0', description: 'Build version to use for Docker image')
         choice(name: 'environment', choices: ['dev', 'qa', 'prod'], description: 'Deployment environment')
         booleanParam(name: 'run_tests', defaultValue: true, description: 'Run unit tests')
     }
     
-    // Definindo variáveis de ambiente globais
     environment {
         DOCKER_IMAGE = "famacil/demo-java-app:${params.build_version}"
         SONAR_URL = "http://sonarqube:9000"
@@ -16,7 +14,6 @@ pipeline {
         GIT_USER_NAME = "cilsocarvalho"
     }
     
-    // Configurando opções do pipeline
     options {
         timestamps()
         timeout(time: 1, unit: 'HOURS')
@@ -27,7 +24,7 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                cleanWs() // Limpa workspace antes de começar
+                cleanWs()
                 git branch: 'main', url: 'https://github.com/cilsocarvalho/devops-demo-project.git'
             }
         }
@@ -53,7 +50,7 @@ pipeline {
         
         stage('Static Code Analysis') {
             when {
-                expression { params.environment != 'prod' } // Pula análise em produção
+                expression { params.environment != 'prod' }
             }
             steps {
                 withSonarQubeEnv('SonarQube') {
@@ -83,14 +80,16 @@ pipeline {
             }
             post {
                 always {
-                    publishHTML([
-                        allowMissing: false,
-                        alwaysLinkToLastBuild: true,
-                        keepAll: true,
-                        reportDir: 'target',
-                        reportFiles: 'dependency-check-report.html',
-                        reportName: 'Dependency Check Report'
-                    ])
+                    publishHTML(
+                        [
+                            allowMissing: false,
+                            alwaysLinkToLastBuild: true,
+                            keepAll: true,
+                            reportDir: 'target',
+                            reportFiles: 'dependency-check-report.html',
+                            reportName: 'Dependency Check Report'
+                        ]
+                    )
                 }
             }
         }
@@ -101,14 +100,12 @@ pipeline {
                     docker.withRegistry('https://index.docker.io/v1/', 'dockerhub') {
                         def dockerImage = docker.build("${DOCKER_IMAGE}", './demo-java-app')
                         dockerImage.push()
-                        // Também tagueando como latest
                         dockerImage.push('latest')
                     }
                 }
             }
             post {
                 success {
-                    // Executa scan de segurança na imagem Docker
                     sh "trivy image ${DOCKER_IMAGE}"
                 }
             }
@@ -124,10 +121,7 @@ pipeline {
                         git config user.email "cilsocarvalho@gmail.com"
                         git config user.name "Cilso Carvalho"
                         
-                        # Atualiza a versão no arquivo values.yaml
                         sed -i "s/tag: .*/tag: \\"${build_version}\\"/" helm/app/values.yaml
-                        
-                        # Atualiza as configurações específicas do ambiente
                         yq eval ".environment = \\"${environment}\\"" -i helm/app/values.yaml
                         
                         git add helm/app/values.yaml
@@ -170,7 +164,7 @@ pipeline {
     post {
         always {
             cleanWs()
-            emailext (
+            emailext(
                 subject: "Pipeline Status: ${currentBuild.result}",
                 body: """
                     Job: ${env.JOB_NAME}
@@ -179,4 +173,8 @@ pipeline {
                     
                     Check console output at: ${env.BUILD_URL}
                 """,
-                recipientProviders: [[$class:
+                to: 'cilsocarvalho@gmail.com'
+            )
+        }
+    }
+}
