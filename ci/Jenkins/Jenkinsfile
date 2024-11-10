@@ -1,10 +1,10 @@
 pipeline {
     agent any
     
-    // Definindo ferramentas necessárias
+    // Corrigindo os nomes das ferramentas para corresponder às configurações do Jenkins
     tools {
-        maven 'maven'
-        jdk 'java'
+        maven 'maven3'
+        jdk 'java11'
     }
     
     parameters {
@@ -21,7 +21,6 @@ pipeline {
         stage('Build and Test') {
             steps {
                 sh 'ls -ltr'
-                // Adicionando tratamento de erro e verbose mode
                 sh '''
                     cd demo-java-app
                     mvn clean package -X
@@ -61,7 +60,6 @@ pipeline {
             }
             steps {
                 script {
-                    // Adicionando tratamento de erro para build do Docker
                     docker.build("${DOCKER_IMAGE}", "-f demo-java-app/Dockerfile demo-java-app")
                     
                     withCredentials([usernamePassword(
@@ -98,14 +96,12 @@ pipeline {
         }
     }
     
-    // Adicionando post actions globais
     post {
         always {
             cleanWs()
         }
         failure {
             echo 'Pipeline failed! Sending notification...'
-            // Adicione aqui sua lógica de notificação
         }
     }
 }
